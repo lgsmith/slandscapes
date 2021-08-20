@@ -1,5 +1,5 @@
 import enspara.tpt
-import msmbuilder.tpt
+# import msmbuilder.tpt
 import numpy as np
 import time
 import scipy.sparse as spar
@@ -446,7 +446,7 @@ class string(base_ranking):
         nfm = enspara.tpt.net_fluxes(
             tprobs, self.start_states,
             self.end_states, populations=msm.eq_probs_)
-        paths, fluxes = msmbuilder.tpt.paths(
+        paths, fluxes = enspara.tpt.paths(
             self.start_states, self.end_states, nfm, num_paths=self.n_paths)
         # make all non-pathway states `nan`
         path_states = np.unique(np.concatenate(paths))
