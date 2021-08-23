@@ -80,3 +80,72 @@ def multiple_barriers(well_width=100,well_depth=50,barrier_height=3,add_noise=Fa
     if add_noise:
         l = l.add_noise(height_range=[-(barrier_height*(1/2)),(barrier_height*(1/2))])
     return l
+
+def rugged_landscape(grid_size=(100,30),
+                     noise=True,
+                     funneled=False,
+                     backtrack=False,
+                     diagonals=False,
+                     b_height=20,
+                     b_width=2,
+                     b_length=1,
+                     instructions={'rand':5}):
+    x_dim = grid_size[0]
+    y_dim = grid_size[1]
+    l = landscape(grid_size)
+    if noise:
+        l = l.add_noise(gaussians_per_axis=int(0.5*y_dim),height_range=[0.5,0.5],width_range=[-2,2])
+    if funneled:
+        l = l.add_gaussian(np.array([0,y_dim/2]),height=3.5,widths=np.array([30,50]))
+    #Add in barriers
+    for key in instructions.keys():
+        #User specified location and barrier
+        if type(key) is tuple:
+            start = key
+            for line in instructions[key]:
+                height, width, dist, angle = line
+                #Add line segment and return new starting position
+                start = l.add_barrier(height=height,width=width,start=start,dist=dist,angle=angle)
+        #user specified barrier, random location
+        elif key == "rand_loc":
+            for barrier in instructions[key]:
+                x = np.random.randint(x_dim)
+                y = np.random.randint(y_dim)
+                start = [y,x]
+                for line in barrier:
+                    heigth, width, dist, angle = line
+                    start = l.add_barrier(height=height,width=width,start=start,dist=dist,angle=angle)
+        #randomly generated barriers at random locations
+        elif key == 'random':
+            #Distribution to draw barrier segment lengths from
+            mu_d = (np.min(grid_size) / 3) * b_length
+            sig_d = (np.min(grid_size) / 5) * b_length
+            num_barrs = instructions[key]
+            all_barrs = []
+            x_spacing = x_dim / num_barrs
+            for b in range(num_barrs):
+                y = np.random.randint(y_dim)
+                x = np.random.randint(b*(x_spacing),(b+1)*(x_spacing)) #along x-axis
+                start = [y,x]
+                #height = np.random.normal(b_height,1,1)[0]
+                #width = np.random.normal(b_width,1,1)[0]
+                dist = np.random.normal(mu_d,sig_d, 1)[0]
+                if diagonals:
+                    angle = np.random.randint(360)
+                else:
+                    angle = np.random.choice([0,90,180,270])
+                if backtrack and np.random.random(1)[0] > 0.95:
+                    # make the barrier long enough to definitely reach edge
+                    dist = y_dim
+                    if start[0] <= (y_dim / 2):
+                        angle = np.random.randint(40,70)
+                        print(angle,start)
+                    else:
+                        angle = np.random.randint(290,320)
+                        print(angle,start)
+                points = l.add_barrier(height=b_height,width=b_width,start=start,dist=dist,angle=angle,draw=False)
+                all_barrs.append(points)
+            uniq_barrs = np.unique(np.concatenate(all_barrs),axis=0)
+            for p in uniq_barrs:
+                l.values[p[0],p[1]] = b_height
+    return l
