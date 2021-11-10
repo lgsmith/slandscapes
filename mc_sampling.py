@@ -15,7 +15,7 @@ def _run_sampling(adaptive_sampling_obj):
 def adaptive_sampling(
         T, initial_state=0, n_runs=1, n_clones=1, n_steps=1,
         msm_obj=None, ranking_obj=None, n_reps=1, n_procs=1,
-        assignments=None):
+        assignments=None, parallel_kids=False):
     """Get synthetic adaptive sampling run from an MSM
 
     Parameters
@@ -61,15 +61,21 @@ def adaptive_sampling(
         msm_obj.max_n_states = len(T)
     if ranking_obj is None:
         ranking_obj = rankings.counts()
-        
+
+    if parallel_kids:
+        kid_procs = n_procs
+        rep_procs = 1
+    else:
+        kid_procs = 1
+        rep_procs = n_procs
     sampling_info = list(
         zip(
             itertools.repeat(
                 Adaptive_Sampling(
                     T, initial_state, n_runs, n_clones, n_steps, msm_obj,
-                    ranking_obj, assignments),
+                    ranking_obj, assignments, kid_procs),
                 n_reps)))
-    pool = Pool(processes = n_procs)
+    pool = Pool(processes=rep_procs)
     new_assignments = pool.map(_run_sampling, sampling_info)
     pool.terminate()
     return np.array(new_assignments)
@@ -101,6 +107,9 @@ class Adaptive_Sampling:
         Optionally provide assignments to continue sampling from. If
         using previous assignments, number of steps for each trajectory
         must be the same.
+    n_procs : int, default=1
+        The number of processors to use to parallelize synthetic
+        trajectory generation. Allows parallelization across kids if gt 1.
 
     Returns
     ----------
@@ -110,7 +119,7 @@ class Adaptive_Sampling:
 
     def __init__(
             self, T, initial_state, n_runs, n_clones, n_steps, msm_obj,
-            ranking_obj, assignments=None):
+            ranking_obj, assignments=None, n_procs=1):
         # Initialize class variables
         self.T = T
         self.initial_state = initial_state
@@ -132,6 +141,7 @@ class Adaptive_Sampling:
             else:
                 raise
         self.starting_assignments = assignments
+        self.n_procs = n_procs
 
     def run(self):
         # initialize random seed. This is necessary for getting
@@ -139,7 +149,9 @@ class Adaptive_Sampling:
         np.random.seed()
         # initialize first run
         assignments = []
+        pool = Pool(processes=self.n_procs)
         if self.starting_assignments is None:
+            synth = partial(synthetic_data.synthetic_trajectory, self.T)
             initial_assignments = np.array(
                 [
                     synthetic_data.synthetic_trajectory(
