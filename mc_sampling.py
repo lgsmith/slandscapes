@@ -1,10 +1,20 @@
 import itertools
 import numpy as np
 from . import rankings
-from enspara.msm import builders, MSM, synthetic_data
+from enspara.msm import builders, MSM
 from functools import partial
 from multiprocessing import Pool
 
+
+# A more efficient implementation of synthetic trajectory for speed
+# note order flip in args
+def synth_traj(t_probs, n_steps, start_state, rng=np.random.default_rng()):
+    traj = np.zeros(n_steps, dtype=int)
+    traj[0] = start_state
+    nstates = t_probs.shape[1]
+    for i in range(n_steps -1):
+        traj[i+1] = rng.choice(nstates, 1, p=t_probs[traj[i], :])
+    return traj
 
 def _run_sampling(adaptive_sampling_obj):
     """Helper to adaptive sampling. Helps parallelize sampling runs."""
@@ -136,14 +146,12 @@ class Adaptive_Sampling:
     def run(self):
         # initialize random seed. This is necessary for getting
         # independent samplings through parallelization.
-        np.random.seed()
+        rng = np.random.default_rng()
         # initialize first run
         assignments = []
         if self.starting_assignments is None:
             initial_assignments = np.array(
-                [
-                    synthetic_data.synthetic_trajectory(
-                        self.T, self.initial_state, self.n_steps)
+                [synth_traj(self.T, self.n_steps, self.initial_state, rng=rng)
                     for i in range(self.n_clones)])
             assignments.append(initial_assignments)
             # If there are no starting assignments, gets initial
@@ -167,9 +175,7 @@ class Adaptive_Sampling:
             states_to_simulate = self.ranking_obj.select_states(
                 self.msm_obj, self.n_clones)
             new_assignments = np.array(
-                [
-                    synthetic_data.synthetic_trajectory(
-                        self.T, states_to_simulate[i], self.n_steps)
+                [synth_traj(self.T, self.n_steps, states_to_simulate[i], rng=rng)
                     for i in range(self.n_clones)])
             assignments.append(new_assignments)
         assignments = np.array(assignments)
