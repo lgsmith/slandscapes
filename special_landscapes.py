@@ -1,5 +1,6 @@
 import numpy as np
 from . import landscape
+from scipy.ndimage import gaussian_filter
 
 
 def funneled_landscape(grid_size, width_frac=0.707, depth=1, resolution=1):
@@ -148,4 +149,36 @@ def rugged_landscape(grid_size=(100,30),
             uniq_barrs = np.unique(np.concatenate(all_barrs),axis=0)
             for p in uniq_barrs:
                 l.values[p[0],p[1]] = b_height
+    return l
+
+def random_gaussian_landscape(
+        grid_size=(100, 30),
+        n_peaks=100,
+        overlapping=True,
+        sigma=(1, 1),
+        resolution=1,
+        gau_scale=1,
+        order=0  # pass through to gaussian_filter. number indicates deriv order
+):
+    l = landscape(grid_size=grid_size,resolution=resolution)
+    # randomly scatter gaussians across grid.
+    # from https://stackoverflow.com/questions/51545745/numpy-generating-a-2d-sum-of-gaussians-pdf-as-an-array
+    impulses = np.zeros_like(l.values)
+    if overlapping:
+        rows, cols = np.unravel_index(
+            np.random.choice(
+                impulses.size,
+                replace=True,
+                size=n_peaks),
+            impulses.shape)
+        np.add.at(impulses, (rows, cols), 1)
+    else:
+        rows, cols = np.unravel_index(
+            np.random.choice(
+                impulses.size,
+                replace=False,
+                size=n_peaks),
+            impulses.shape)
+        impulses[rows, cols] = 1
+    l.values = gaussian_filter(impulses, sigma, mode='nearest', order=order) * gau_scale
     return l

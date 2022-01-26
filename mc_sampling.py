@@ -4,6 +4,7 @@ from . import rankings
 from enspara.msm import builders, MSM
 from functools import partial
 from multiprocessing import Pool
+from math import ceil
 
 
 # A more efficient implementation of synthetic trajectory for speed
@@ -92,8 +93,8 @@ class Adaptive_Sampling:
     ----------
     T : array, shape=(n_states, n_states)
         The transition probability matrix from which to sample.
-    initial_state : int, default=0
-        The initial state from which to start simulations.
+    initial_state : int, or list of ints, default=0
+        The initial state(s) from which to start simulations.
     n_runs : int, default=1
         The number of rounds of adaptive sampling.
     n_clones : int, default=1
@@ -150,9 +151,32 @@ class Adaptive_Sampling:
         # initialize first run
         assignments = []
         if self.starting_assignments is None:
-            initial_assignments = np.array(
-                [synth_traj(self.T, self.n_steps, self.initial_state, rng=rng)
-                    for i in range(self.n_clones)])
+            try:
+                # if initial state is an iterable of ints, seed initial trajs with them
+                n_seeds = len(self.initial_state)
+                if n_seeds < self.n_clones:
+                    print('Warning: number of clones is', self.n_clones, 'but', n_seeds,
+                          'initial states were requested')
+                    print('Re-using requested seeds to get correct clone count')
+                    diff = self.n_clones - n_seeds
+                    repeat_count = ceil(diff/n_seeds)
+                    seed_list = (self.initial_state*diff)[:n_clones]
+
+                if n_seeds > self.n_clones:
+                    print('Warning: number of clones is', self.n_clones, 'but', n_seeds,
+                          'initial states were requested')
+                    print('Taking first', self.n_clones,'provided seeds to get correct clone count')
+                    seed_list = self.initial_state[:self.n_clones]
+                else:
+                    seed_list = self.initial_state
+                initial_assignments = np.array(
+                    [synth_traj(self.T, self.n_steps, i, rng=rng)
+                     for i in seed_list])
+            except TypeError:
+                # if initial state is an int, then use it as start state each time
+                initial_assignments = np.array(
+                    [synth_traj(self.T, self.n_steps, self.initial_state, rng=rng)
+                        for i in range(self.n_clones)])
             assignments.append(initial_assignments)
             # If there are no starting assignments, gets initial
             # assignments from initial state and this counts as a single
