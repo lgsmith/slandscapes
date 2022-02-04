@@ -1,7 +1,6 @@
 import enspara.tpt
 # import msmbuilder.tpt
 import numpy as np
-import time
 import scipy.sparse as spar
 from . import scalings
 
@@ -16,6 +15,34 @@ def euclidean_dist(centers, frame):
     dists = np.sqrt(np.einsum('ij,ij->i', diffs, diffs))
     return dists
 
+class DistanceLookup:
+    """A class for reading in user specified distances from
+       a pre-computed state space, for KMC with real tprobs.
+
+    Parameters
+    ----------
+    dists : 2D array of the distance between each state pair
+    metric : function, default=self.euclidean evaluates
+        how far a frame is from all the other frames found thus far.
+    Returns
+    ----------
+    distance : float
+    The accumulated distance from each center to the provided center
+    """
+
+    def euclidean(self, dist_pairs):
+        return np.sqrt(np.einsum('ij,ij->i', dist_pairs, dist_pairs))
+
+    def __init__(self, dists, metric=None):
+        self.dists = dists
+        if metric:
+            self.metric = metric
+        else:
+            self.metric = self.euclidean
+
+    def __call__(self, centers, frame):
+        dist_pairs = self.dists[frame, :][centers]
+        return self.metric(dist_pairs)
 
 def _evens_select_states(unique_states, n_clones):
     """Helper function for evens state selection. Picks among all
