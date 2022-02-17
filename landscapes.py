@@ -397,17 +397,18 @@ class landscape:
 
     def plot(
             self, title='potential energy landscape', cmap='seismic',
-            **kwargs):
-        plt.figure(
-            title, figsize=(
-                self.x1_coords.max()/self.x2_coords.max()*10, 8))
-        plt.xlim((self.x1_coords[0,0], self.x1_coords[0,-1]))
-        plt.ylim((self.x2_coords[0,0], self.x2_coords[-1,0]))
-        plt.pcolormesh(
+            fig=None, ax=None, cblabel=None, **kwargs):
+        if not (fig or ax):
+            fig, ax = plt.subplots(
+                figsize=(self.x1_coords.max()/self.x2_coords.max()*10, 8))
+        fig.suptitle(title)
+        ax.set_xlim((self.x1_coords[0,0], self.x1_coords[0,-1]))
+        ax.set_ylim((self.x2_coords[0,0], self.x2_coords[-1,0]))
+        cb = ax.pcolormesh(
             self.x1_coords, self.x2_coords, self.values, cmap=cmap, **kwargs)
-        plt.colorbar()
+        fig.colorbar(cb, label=cblabel)
         plt.show()
-        return
+        return (fig, ax)
 
     def cplot(
             self, title='potential energy landscape', cmap='RdYlBu_r',
@@ -473,13 +474,14 @@ class landscape:
             plt.show()
         return fig, ax
 
-    def save_fig(self, output_name, title='potential energy landscape'):
+    def save_fig(self, output_name, title='potential energy landscape',
+                 transparent=True):
         plt.figure(title)
         plt.xlim((self.x1_coords[0,0], self.x1_coords[0,-1]))
         plt.ylim((self.x2_coords[0,0], self.x2_coords[-1,0]))
         plt.pcolormesh(self.x1_coords, self.x2_coords, self.values)
         plt.colorbar()
-        plt.savefig(output_name)
+        plt.savefig(output_name, transparent=transparent)
         plt.show()
 
     def to_probs(self):
